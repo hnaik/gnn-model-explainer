@@ -312,7 +312,8 @@ def log_graph(
     if Gc.number_of_nodes() == 0:
         raise Exception("empty graph")
     if Gc.number_of_edges() == 0:
-        raise Exception("empty edge")
+        # raise Exception("empty edge")
+        return
     # remove_nodes = []
     # for u in Gc.nodes():
     #    if Gc
@@ -351,12 +352,14 @@ def log_graph(
     if args is None:
         save_path = os.path.join("log/", name + ".pdf")
     else:
+        plt_format = 'pdf' if not hasattr(args, 'plt_format') else args.plt_format
+        logdir = 'log' if not hasattr(args, 'logdir') else str(args.logdir)
         save_path = os.path.join(
-            "log", name + gen_explainer_prefix(args) + "_" + str(epoch) + ".pdf"
+            logdir, name + gen_explainer_prefix(args) + "_" + str(epoch) + "." + plt_format
         )
-        print("log/" + name + gen_explainer_prefix(args) + "_" + str(epoch) + ".pdf")
+        print(logdir + "/" + name + gen_explainer_prefix(args) + "_" + str(epoch) + "." + plt_format)
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    plt.savefig(save_path, format="pdf")
+    plt.savefig(save_path, format=plt_format)
 
     img = tensorboardX.utils.figure_to_image(fig)
     writer.add_image(name, img, epoch)
