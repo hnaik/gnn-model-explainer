@@ -371,7 +371,7 @@ class Explainer:
             io_utils.log_graph(
                 self.writer,
                 G_denoised,
-                "graph/graphidx_{}_label={}".format(graph_idx, label),
+                "graph/graphidx_{}_label_{}".format(graph_idx, label),
                 identify_self=False,
                 nodecolor="feat",
             )
