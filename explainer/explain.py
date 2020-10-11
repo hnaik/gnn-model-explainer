@@ -374,6 +374,7 @@ class Explainer:
                 "graph/graphidx_{}_label_{}".format(graph_idx, label),
                 identify_self=False,
                 nodecolor="feat",
+                args=self.args
             )
             masked_adjs.append(masked_adj)
 
@@ -391,6 +392,7 @@ class Explainer:
                 "graph/graphidx_{}".format(graph_idx),
                 identify_self=False,
                 nodecolor="feat",
+                args=self.args
             )
 
         # plot cmap for graphs' node features
