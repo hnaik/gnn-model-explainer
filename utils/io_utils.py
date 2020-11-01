@@ -349,12 +349,14 @@ def log_graph(
     fig.canvas.draw()
 
     logdir = "log" if not hasattr(args, "logdir") or not args.logdir else str(args.logdir)
+    ext = "pdf" if not hasattr(args, "plt_format") or not args.plt_format else str(args.plt_format)
     if nodecolor != "feat":
         name += gen_explainer_prefix(args)
-    save_path = os.path.join(logdir, name  + "_" + str(epoch) + ".pdf")
-    print(logdir + "/" + name + gen_explainer_prefix(args) + "_" + str(epoch) + ".pdf")
+    output_path = f"{name}_{str(epoch)}.{ext}"
+    save_path = os.path.join(logdir, output_path)
+    print(save_path)
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    plt.savefig(save_path, format="pdf")
+    plt.savefig(save_path, format=ext)
 
     img = tensorboardX.utils.figure_to_image(fig)
     writer.add_image(name, img, epoch)
