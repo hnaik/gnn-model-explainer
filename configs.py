@@ -1,5 +1,8 @@
 import argparse
 import utils.parser_utils as parser_utils
+
+from pathlib import Path
+
     
 def arg_parse():
     parser = argparse.ArgumentParser(description='GraphPool arguments.')
@@ -71,6 +74,7 @@ def arg_parse():
             help='Method. Possible values: base, ')
     parser.add_argument('--name-suffix', dest='name_suffix',
             help='suffix added to the output filename')
+    parser.add_argument('--input-graph', type=Path)
 
     parser.set_defaults(datadir='data', # io_parser
                         logdir='log',
