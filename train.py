@@ -11,6 +11,7 @@ import shutil
 import time
 
 from pathlib import Path
+from typing import Callable
 
 import matplotlib
 import matplotlib.colors as colors
@@ -93,9 +94,9 @@ def prepare_data(graphs, args, test_graphs=None, max_nodes=0):
     )
 
     dataset_sampler = graph_utils.GraphSampler(
-        val_graphs, 
-        normalize=False, 
-        max_num_nodes=max_nodes, 
+        val_graphs,
+        normalize=False,
+        max_num_nodes=max_nodes,
         features=args.feature_type
     )
     val_dataset_loader = torch.utils.data.DataLoader(
@@ -130,7 +131,7 @@ def prepare_data(graphs, args, test_graphs=None, max_nodes=0):
 
 #############################
 #
-# Training 
+# Training
 #
 #############################
 def train(
@@ -591,6 +592,107 @@ def ppi_essential_task(args, writer=None):
 
     train_node_classifier(G, labels, model, args, writer=writer)
 
+def load_syn_benzene(args) -> nx.Graph:
+    const_feat = np.ones(args.input_dim, dtype=float)
+    if args.input_graph:
+        with open(args.input_graph) as f:
+            G = json_graph.node_link_graph(json.load(f))
+            feat_data = {i: {'feat': np.array(const_feat, dtype=np.float32)} for i in G.nodes()}
+            nx.set_node_attributes(G, feat_data)
+
+            return G
+
+def syn_benzene(args, writer=None):
+    G = load_syn_benzene(args)
+    labels = [np.int64(G.nodes[n]['class']['value']) for n in G.nodes]
+    num_classes = max(labels) + 1
+
+    model = models.GcnEncoderNode(
+        args.input_dim,
+        args.hidden_dim,
+        args.output_dim,
+        num_classes,
+        args.num_gc_layers,
+        bn=args.bn,
+        args=args
+    )
+
+    if args.gpu:
+        model = model.cuda()
+
+    train_node_classifier(G, labels, model, args, writer=writer)
+
+
+def load_syn_benzene_compound(args) -> nx.Graph:
+    const_feat = np.ones(args.input_dim, dtype=float)
+    if not args.input_graph:
+        return
+    with open(args.input_graph) as f:
+        G = json_graph.node_link_graph(json.load(f))
+        feat_data = {i: {'feat': np.array(const_feat, dtype=np.float32)} for i in G.nodes()}
+        nx.set_node_attributes(G, feat_data)
+
+        return G
+
+def syn_benzene_compound(args, writer=None):
+    G = load_syn_benzene_compound(args)
+    labels = [np.int64(G.nodes[n]['class']['value']) for n in G.nodes]
+    num_classes = max(labels) + 1
+
+    model = models.GcnEncoderNode(
+        args.input_dim,
+        args.hidden_dim,
+        args.output_dim,
+        num_classes,
+        args.num_gc_layers,
+        bn=args.bn,
+        args=args
+    )
+
+    if args.gpu:
+        model = model.cuda()
+
+    train_node_classifier(G, labels, model, args, writer=writer)
+
+def feat_dict(G: nx.Graph, dim: int) -> np.array:
+    const_feat = np.ones(dim, dtype=float)
+    return {i: {'feat': np.array(const_feat, dtype=np.float32)} for i in G.nodes}
+
+def run_train(func: Callable, args, key='class', writer=None):
+    G = func(args)
+    labels = [np.int64(G.nodes[n][key]['value']) for n in G.nodes]
+    for node in G.nodes:
+        G.nodes[node]['feat'] = np.array(G.nodes[node]['feat'])
+    num_classes =  max(labels) + 1
+
+    model = models.GcnEncoderNode(
+        args.input_dim,
+        args.hidden_dim,
+        args.output_dim,
+        num_classes,
+        args.num_gc_layers,
+        bn=args.bn,
+        args=args
+    )
+
+    if args.gpu:
+        model = model.cuda()
+
+    train_node_classifier(G, labels, model, args, writer=writer)
+
+def load_graph(args) -> nx.Graph:
+    with open(args.input_graph) as f:
+        G = json_graph.node_link_graph(json.load(f))
+        nx.set_node_attributes(G, feat_dict(G, args.input_dim))
+
+        return G
+
+def syn_spiked_ring(args, writer=None):
+    run_train(load_graph, args, writer=writer, key='label')
+
+def syn_bzc(args, writer=None):
+    run_train(load_graph, args, writer=writer, key='label')
+
 
 def syn_task1(args, writer=None):
     # data
@@ -604,6 +706,8 @@ def syn_task1(args, writer=None):
         G, labels, name = gengraph.gen_syn1(
             feature_generator=featgen.ConstFeatureGen(np.ones(args.input_dim, dtype=float))
         )
+        print(G.nodes[0]['feat'])
+        import sys; sys.exit(0)
 
     num_classes = max(labels) + 1
 
@@ -1187,6 +1291,14 @@ def main():
             enron_task(prog_args, writer=writer)
         elif prog_args.dataset == "ppi_essential":
             ppi_essential_task(prog_args, writer=writer)
+        elif prog_args.dataset == "benzene":
+            syn_benzene(prog_args, writer=writer)
+        elif prog_args.dataset == "benzene-compound":
+            syn_benzene_compound(prog_args, writer=writer)
+        elif prog_args.dataset == 'spiked-rings':
+            syn_spiked_ring(prog_args, writer=writer)
+        elif prog_args.dataset == 'bzc':
+            syn_bzc(prog_args, writer=writer)
 
     writer.close()
 

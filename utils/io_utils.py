@@ -327,10 +327,12 @@ def log_graph(
     min_color = min([d for (u, v, d) in Gc.edges(data="weight", default=1)])
     # color range: gray to black
     edge_vmin = 2 * min_color - edge_vmax
+
+    vertex_labels = {i: str(i) for i in Gc.nodes}
     nx.draw(
         Gc,
         pos=pos_layout,
-        with_labels=False,
+        with_labels=True,
         font_size=4,
         labels=feat_labels,
         node_color=node_colors,
@@ -341,9 +343,9 @@ def log_graph(
         edge_cmap=plt.get_cmap("Greys"),
         edge_vmin=edge_vmin,
         edge_vmax=edge_vmax,
-        width=1.0,
-        node_size=50,
-        alpha=0.8,
+        width=2.0,
+        node_size=225,
+        # alpha=0.8,
     )
     fig.axes[0].xaxis.set_visible(False)
     fig.canvas.draw()

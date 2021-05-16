@@ -24,7 +24,13 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 import sklearn.metrics as metrics
-from sklearn.metrics import roc_auc_score, recall_score, precision_score, roc_auc_score, precision_recall_curve
+from sklearn.metrics import (
+    roc_auc_score,
+    recall_score,
+    precision_score,
+    roc_auc_score,
+    precision_recall_curve,
+)
 from sklearn.cluster import DBSCAN
 
 import pdb
@@ -38,6 +44,7 @@ use_cuda = torch.cuda.is_available()
 FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
 Tensor = FloatTensor
+
 
 class Explainer:
     def __init__(
@@ -64,18 +71,22 @@ class Explainer:
         self.n_hops = args.num_gc_layers
         self.graph_mode = graph_mode
         self.graph_idx = graph_idx
-        self.neighborhoods = None if self.graph_mode else graph_utils.neighborhoods(adj=self.adj, n_hops=self.n_hops, use_cuda=use_cuda)
+        self.neighborhoods = (
+            None
+            if self.graph_mode
+            else graph_utils.neighborhoods(
+                adj=self.adj, n_hops=self.n_hops, use_cuda=use_cuda
+            )
+        )
         self.args = args
         self.writer = writer
         self.print_training = print_training
-
 
     # Main method
     def explain(
         self, node_idx, graph_idx=0, graph_mode=False, unconstrained=False, model="exp"
     ):
-        """Explain a single node prediction
-        """
+        """Explain a single node prediction"""
         # index of the query node in the new adj
         if graph_mode:
             node_idx_new = node_idx
@@ -85,17 +96,21 @@ class Explainer:
             neighbors = np.asarray(range(self.adj.shape[0]))
         else:
             print("node label: ", self.label[graph_idx][node_idx])
-            node_idx_new, sub_adj, sub_feat, sub_label, neighbors = self.extract_neighborhood(
-                node_idx, graph_idx
-            )
+            (
+                node_idx_new,
+                sub_adj,
+                sub_feat,
+                sub_label,
+                neighbors,
+            ) = self.extract_neighborhood(node_idx, graph_idx)
             print("neigh graph idx: ", node_idx, node_idx_new)
             sub_label = np.expand_dims(sub_label, axis=0)
 
         sub_adj = np.expand_dims(sub_adj, axis=0)
         sub_feat = np.expand_dims(sub_feat, axis=0)
 
-        adj   = torch.tensor(sub_adj, dtype=torch.float)
-        x     = torch.tensor(sub_feat, requires_grad=True, dtype=torch.float)
+        adj = torch.tensor(sub_adj, dtype=torch.float)
+        x = torch.tensor(sub_feat, requires_grad=True, dtype=torch.float)
         label = torch.tensor(sub_label, dtype=torch.long)
 
         if self.graph_mode:
@@ -119,7 +134,6 @@ class Explainer:
             explainer = explainer.cuda()
 
         self.model.eval()
-
 
         # gradient baseline
         if model == "grad":
@@ -213,13 +227,21 @@ class Explainer:
                 adj_atts = nn.functional.sigmoid(adj_atts).squeeze()
                 masked_adj = adj_atts.cpu().detach().numpy() * sub_adj.squeeze()
 
-        fname = 'masked_adj_' + io_utils.gen_explainer_prefix(self.args) + (
-                'node_idx_'+str(node_idx)+'graph_idx_'+str(self.graph_idx)+'.npy')
-        with open(os.path.join(self.args.logdir, fname), 'wb') as outfile:
+        fname = (
+            "masked_adj_"
+            + io_utils.gen_explainer_prefix(self.args)
+            + (
+                "node_idx_"
+                + str(node_idx)
+                + "graph_idx_"
+                + str(self.graph_idx)
+                + ".npy"
+            )
+        )
+        with open(os.path.join(self.args.logdir, fname), "wb") as outfile:
             np.save(outfile, np.asarray(masked_adj.copy()))
             print("Saved adjacency matrix to ", fname)
         return masked_adj
-
 
     # NODE EXPLAINER
     def explain_nodes(self, node_indices, args, graph_idx=0):
@@ -289,8 +311,11 @@ class Explainer:
         # io_utils.log_graph(self.writer, aligned_adj.cpu().detach().numpy(), new_curr_idx,
         #        'align/aligned', epoch=1)
 
-        return masked_adjs
+        print(
+            f"num_nodes={G_aligned.number_of_nodes()}, edges={G_aligned.number_of_edges()}"
+        )
 
+        return masked_adjs
 
     def explain_nodes_gnn_stats(self, node_indices, args, graph_idx=0, model="exp"):
         masked_adjs = [
@@ -319,7 +344,7 @@ class Explainer:
                 G,
                 "graph/{}_{}_{}".format(self.args.dataset, model, i),
                 identify_self=True,
-                args=self.args
+                args=self.args,
             )
 
         pred_all = np.concatenate((pred_all), axis=0)
@@ -375,7 +400,7 @@ class Explainer:
                 "graph/graphidx_{}_label={}".format(graph_idx, label),
                 identify_self=False,
                 nodecolor="feat",
-                args=self.args
+                args=self.args,
             )
             masked_adjs.append(masked_adj)
 
@@ -393,7 +418,7 @@ class Explainer:
                 "graph/graphidx_{}".format(graph_idx),
                 identify_self=False,
                 nodecolor="feat",
-                args=self.args
+                args=self.args,
             )
 
         # plot cmap for graphs' node features
@@ -432,9 +457,13 @@ class Explainer:
                     pred,
                 )
 
-                idx_new, sub_adj, sub_feat, sub_label, neighbors = self.extract_neighborhood(
-                    idx, graph_idx
-                )
+                (
+                    idx_new,
+                    sub_adj,
+                    sub_feat,
+                    sub_label,
+                    neighbors,
+                ) = self.extract_neighborhood(idx, graph_idx)
                 G = nx.from_numpy_matrix(sub_adj)
                 node_colors = [1 for i in range(G.number_of_nodes())]
                 node_colors[idx_new] = 0
@@ -487,7 +516,6 @@ class Explainer:
             pred_idx = pred_idx.cuda()
         self.alpha = self.preds_grad
 
-
     # Utilities
     def extract_neighborhood(self, node_idx, graph_idx=0):
         """Returns the neighborhood of a given ndoe."""
@@ -503,8 +531,7 @@ class Explainer:
     def align(
         self, ref_feat, ref_adj, ref_node_idx, curr_feat, curr_adj, curr_node_idx, args
     ):
-        """ Tries to find an alignment between two graphs.
-        """
+        """Tries to find an alignment between two graphs."""
         ref_adj = torch.FloatTensor(ref_adj)
         curr_adj = torch.FloatTensor(curr_adj)
 
@@ -682,7 +709,9 @@ class ExplainModule(nn.Module):
         adj_sum = torch.sum(self.adj)
         return mask_sum / adj_sum
 
-    def forward(self, node_idx, unconstrained=False, mask_features=True, marginalize=False):
+    def forward(
+        self, node_idx, unconstrained=False, mask_features=True, marginalize=False
+    ):
         x = self.x.cuda() if self.args.gpu else self.x
 
         if unconstrained:
@@ -712,6 +741,7 @@ class ExplainModule(nn.Module):
         else:
             node_pred = ypred[self.graph_idx, node_idx, :]
             res = nn.Softmax(dim=0)(node_pred)
+            print(f"node_pred={node_pred.shape}, res dim={res.shape}")
         return res, adj_att
 
     def adj_feat_grad(self, node_idx, pred_label_node):
@@ -769,10 +799,9 @@ class ExplainModule(nn.Module):
         mask_ent = -mask * torch.log(mask) - (1 - mask) * torch.log(1 - mask)
         mask_ent_loss = self.coeffs["ent"] * torch.mean(mask_ent)
 
-        feat_mask_ent = - feat_mask             \
-                        * torch.log(feat_mask)  \
-                        - (1 - feat_mask)       \
-                        * torch.log(1 - feat_mask)
+        feat_mask_ent = -feat_mask * torch.log(feat_mask) - (1 - feat_mask) * torch.log(
+            1 - feat_mask
+        )
 
         feat_mask_ent_loss = self.coeffs["feat_ent"] * torch.mean(feat_mask_ent)
 
@@ -787,7 +816,10 @@ class ExplainModule(nn.Module):
         if self.graph_mode:
             lap_loss = 0
         else:
-            lap_loss = (self.coeffs["lap"]
+            print(f"shapes: {pred_label.shape}, {pred_label_t.shape}, {L.shape}")
+
+            lap_loss = (
+                self.coeffs["lap"]
                 * (pred_label_t @ L @ pred_label_t)
                 / self.adj.numel()
             )
@@ -898,7 +930,11 @@ class ExplainModule(nn.Module):
         # visualization
         if self.graph_mode:
             G = io_utils.denoise_graph(
-                masked_adj, node_idx, feat=self.x[0], threshold=None, max_component=False
+                masked_adj,
+                node_idx,
+                feat=self.x[0],
+                threshold=None,
+                max_component=False,
             )
             io_utils.log_graph(
                 self.writer,
@@ -936,9 +972,13 @@ class ExplainModule(nn.Module):
             )
         else:
             # G = io_utils.denoise_graph(adj_grad, node_idx, label=label, threshold=0.5)
-            G = io_utils.denoise_graph(adj_grad, node_idx, threshold_num=12)
+            G = io_utils.denoise_graph(
+                adj_grad, 
+                node_idx, 
+                threshold_num=self.args.threshold_num)
             io_utils.log_graph(
-                self.writer, G, name="grad/graph", epoch=epoch, args=self.args
+                self.writer, G, name="grad/graph", epoch=epoch, args=self.args,
+                label_node_feat=True
             )
 
         # if graph attention, also visualize att
@@ -967,7 +1007,9 @@ class ExplainModule(nn.Module):
             )
         else:
             G = io_utils.denoise_graph(
-                masked_adj, node_idx, threshold_num=12, max_component=True
+                masked_adj, node_idx, 
+                threshold_num=self.args.threshold_num, 
+                max_component=True
             )
             io_utils.log_graph(
                 self.writer,
@@ -977,6 +1019,6 @@ class ExplainModule(nn.Module):
                 nodecolor="label",
                 epoch=epoch,
                 edge_vmax=None,
+                label_node_feat=True,
                 args=self.args,
             )
-
